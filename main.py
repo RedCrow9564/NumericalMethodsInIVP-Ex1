@@ -1,96 +1,71 @@
-import timeit
 import numpy as np
-from scipy import sparse
-from Infrastructure.numeric_schemes import AdvectionEqForwardEuler
-from copy import deepcopy
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from memory_profiler import profile
+
+from Infrastructure.numeric_schemes import AdvectionEqForwardEuler, AdvectionModelLeapFrog
 
 
-def direct_powers(n):
-  a = np.exp(2 * np.pi * 1j / n)
-  p = np.power(a, list(range(1, n)))
-  p = [1] + p.tolist()
-  return p
+def exact_solution(x, t):
+    return np.cos(2 * np.pi * (x + t))
 
 
-def direct_prod(n, v):
-    a = 2
-    diagonals = [np.ones(n), a * np.ones(n - 1), -a * np.ones(n - 1), [-a], [a]]
-    A = sparse.diags(diagonals, offsets=[0, 1, -1, n - 1, -n + 1]).toarray()
-    result = A.dot(v)
-    return result, A
+def start_conditions(x):
+    return exact_solution(x, 0)
 
 
-def deco_product(n, v):
-    a = 2
-    unity_roots = np.array(direct_powers(n)[1:])
-    eigen = a * (unity_roots - np.flip(unity_roots, axis=0)) + 1
-    eigen = np.conj(eigen)
-    eigen = np.append([1], eigen)
-    result = np.fft.fft(np.multiply(eigen, np.fft.ifft(v)))
-    return result, eigen
+def plot_result(data, x_grid, t_grid, gamma, N):
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    plt.ylabel('T')
+    plt.title("Approximation of {0} points, gamma={1}".format(N, gamma))
+    plt.xlabel('X')
+    ax.plot_surface(x_grid, t_grid, data, rstride=1, cstride=1)
+    plt.show()
 
 
-def conv_product(n, v):
-    a = 2
-    v_list = v.tolist()
-    res = []
-    i1 = 0
-    i2 = 1
-    i3 = n - 1
-    k = 0
-    for vk in v_list:
-        resk = 1 * v[i1] + a * v[i2] - a * v[i3]
-        i1 += 1
-        i2 += 1
-        i3 += 1
-        if k == 0:
-            i3 = 0
-        elif k == n - 2:
-            i2 = 0
-        k += 1
-        res.append(resk)
-    res = np.array(res)
-    return res
+def perform_experiment(N, dt, last_t, first_x, last_x):
+
+    model = AdvectionModelLeapFrog(N, dt, last_t, first_x=first_x, last_x=last_x,
+                                   starting_condition_func=start_conditions)
+    times = int(np.floor(last_t / dt))
+    for _ in range(times - 1):
+        model.make_step()
+
+    return model.current_state
 
 
 def main():
-    start_condition = lambda x: np.cos(2 * np.pi * x)
-    gamma = 0.1
-    N = 16
-    dx = 1 / (N + 1)
-    dt = gamma * dx
+    gammas = [0.1]
+    n = np.power(2, list(range(4, 8)))
+
+    first_x = 0
+    last_x = 1
     last_t = 5
-    x = np.arange(0, 1, dx)
-    t = np.arange(0, last_t, dt)
-    X, T = np.meshgrid(x, t)
-    current_state = start_condition(x.reshape((1, -1)))
-    numeric_solution = deepcopy(current_state)
 
-    model = AdvectionEqForwardEuler(N, dt, last_t, first_x=0, last_x=1, starting_condition_func=start_condition)
-    for _ in t.tolist()[1:]:
-        current_state = model.make_step().reshape((1, -1))
-        numeric_solution = np.append(numeric_solution, current_state, axis=0)
+    for gamma in gammas:
+        approximation_errors = []
+        deltaxs = []
 
-    fig = plt.figure()
-    ax = Axes3D(fig)
-    ax.plot_surface(X, T, numeric_solution, rstride=1, cstride=1)
-    plt.show()
-    print('t')
+        for N in n:
+            dx = (last_x - first_x) / (N + 1)
+            dt = gamma * dx ** 2
+            x = np.arange(first_x, last_x, dx)
+            last_calculated_time = np.floor(last_t / dt) * dt
 
+            numeric_approximation = perform_experiment(N, dt, last_t, first_x, last_x)
+            exact_values = exact_solution(x, last_calculated_time)
+            #plt.plot(x, numeric_approximation, label='Numeric Solution')
+            #plt.plot(x, exact_values, label='Exact Solution')
+            #plt.legend()
+            #plt.show()
+            error = np.linalg.norm(exact_values - numeric_approximation) * np.sqrt(dx)
+            approximation_errors.append(error)
+            deltaxs.append(dx)
 
-def test():
-    n = 2 ** 4
-    v = np.random.rand(n)
-    glob = {'v': v, 'n': n}
-    repeats = 1000
-    t1 = timeit.timeit("deco_product(n, v)", setup="from __main__ import deco_product", globals=glob, number=repeats) / repeats
-    t2 = timeit.timeit("direct_prod(n, v)", setup="from __main__ import direct_prod", globals=glob, number=repeats) / repeats
-    t3 = timeit.timeit("conv_product(n, v)", setup="from __main__ import conv_product", globals=glob, number=repeats) / repeats
-    print(t1 * 10 ** 6)
-    print(t2 * 10 ** 6)
-    print(t3 * 10 ** 6)
+        plt.plot(np.log10(np.flip(deltaxs, axis=0)), np.log10(np.flip(approximation_errors, axis=0)))
+        print(np.polyfit(np.log10(np.flip(deltaxs, axis=0)), np.log10(np.flip(approximation_errors, axis=0)), deg=1))
+        plt.show()
 
 
 if __name__ == '__main__':
