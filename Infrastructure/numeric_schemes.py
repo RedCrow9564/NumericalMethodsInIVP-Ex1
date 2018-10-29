@@ -1,6 +1,6 @@
 import numpy as np
 from copy import deepcopy
-from memory_profiler import profile
+#from memory_profiler import profile
 
 from Infrastructure.circulant_sparse_matrix import CirculantSparseMatrix
 
@@ -38,11 +38,13 @@ class _ForwardEulerModel(_ModelTemplate):
 
 
 class _LeapFrogModel(_ModelTemplate):
-    def __init__(self, n, dt, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term, transition_mat):
+    def __init__(self, n, dt, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term, transition_mat,
+                 first_step_model):
         super(_LeapFrogModel, self).__init__(n, dt, last_t, first_x, last_x, starting_condition_func,
                                              nonhomogeneous_term)
         self._transition_mat = transition_mat
-        self._first_step_model = AdvectionEqForwardEuler(n, dt, last_t, first_x, last_x, starting_condition_func)
+        self._first_step_model = first_step_model(n, dt, last_t, first_x, last_x, starting_condition_func,
+                                                  nonhomogeneous_term)
         self._previous_state = deepcopy(self.current_state)
 
     def make_step(self):
@@ -60,8 +62,8 @@ class _LeapFrogModel(_ModelTemplate):
 
 
 class AdvectionEqForwardEuler(_ForwardEulerModel):
-    def __init__(self, n, dt, last_t, first_x, last_x, starting_condition_func):
-        nonhomogeneous_term = lambda x, t: np.zeros(x.shape)  # The equation is assumed to be homogeneous.
+    def __init__(self, n, dt, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+        #nonhomogeneous_term = lambda x, t: np.zeros(x.shape)  # The equation is assumed to be homogeneous.
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / (2 * dx)
         transition_mat = CirculantSparseMatrix(n + 1, [1, ratio, -ratio], [0, 1, n])
@@ -70,10 +72,10 @@ class AdvectionEqForwardEuler(_ForwardEulerModel):
 
 
 class AdvectionModelLeapFrog(_LeapFrogModel):
-    def __init__(self, n, dt, last_t, first_x, last_x, starting_condition_func):
-        nonhomogeneous_term = lambda x, t: np.zeros(x.shape)  # The equation is assumed to be homogeneous.
+    def __init__(self, n, dt, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+        #nonhomogeneous_term = lambda x, t: np.zeros(x.shape)  # The equation is assumed to be homogeneous.
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / dx
         transition_mat = CirculantSparseMatrix(n + 1, [ratio, -ratio], [1, n])
         super(AdvectionModelLeapFrog, self).__init__(n, dt, last_t, first_x, last_x, starting_condition_func,
-                                                     nonhomogeneous_term, transition_mat)
+                                                     nonhomogeneous_term, transition_mat, AdvectionEqForwardEuler)
