@@ -10,7 +10,6 @@ class CirculantSparseMatrix(object):
         self._n = n
         self._terms = np.array(nonzero_terms)
         self._indices = np.array(nonzero_indices)
-        self._nonzero_len = len(nonzero_indices)
         #row = np.array(n * [0], dtype=np.float)
         #row[nonzero_indices] = self._terms
         #self._eigs = fft(row)
@@ -21,5 +20,5 @@ class CirculantSparseMatrix(object):
         #    return np.real(fft(np.multiply(self._eigs, ifft(v))))
         #else:
         next_state = np.zeros(v.shape)
-        compute(self._terms, self._indices, v, next_state, self._nonzero_len)
+        compute(self._terms, self._indices, v, next_state)
         return next_state
