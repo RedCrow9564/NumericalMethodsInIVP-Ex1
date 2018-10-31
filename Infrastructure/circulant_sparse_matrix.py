@@ -21,5 +21,5 @@ class CirculantSparseMatrix(object):
         #    return np.real(fft(np.multiply(self._eigs, ifft(v))))
         #else:
         next_state = np.zeros(v.shape)
-        compute(self._terms, self._indices, v, next_state, self._nonzero_len)
+        compute(self._terms, self._indices, v, next_state)
         return next_state

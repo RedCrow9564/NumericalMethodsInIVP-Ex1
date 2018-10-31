@@ -38,7 +38,7 @@ def perform_experiment(N, dt, last_t, first_x, last_x, nonhomogeneous_term):
 
 def main():
     gammas = [0.1]
-    n = np.power(2, list(range(8, 9)))
+    n = np.power(2, list(range(4, 7)))
 
     first_x = 0
     last_x = 1
