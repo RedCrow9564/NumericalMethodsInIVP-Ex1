@@ -1,3 +1,4 @@
+# cython: language_level=3
 cimport cython
 
 ctypedef fused possible_type:
@@ -21,10 +22,8 @@ def compute(possible_type[::1] circulant_terms, int[::1] terms_indices, possible
 
         for i in range(terms_num):
             next_state[k] += current_state[current_indices[i]] * circulant_terms[i]
-
-        if current_indices[index_to_reset] == n - 1:
-            current_indices[index_to_reset] = -1
-            index_to_reset -= 1
-
-        for i in range(terms_num):
             current_indices[i] += 1
+
+        if current_indices[index_to_reset] == n:
+            current_indices[index_to_reset] = 0
+            index_to_reset -= 1

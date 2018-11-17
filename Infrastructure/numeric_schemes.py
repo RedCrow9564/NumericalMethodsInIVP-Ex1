@@ -1,14 +1,15 @@
 import numpy as np
 from copy import deepcopy
+from enum import Enum
 #from memory_profiler import profile
 
 from Infrastructure.circulant_sparse_matrix import CirculantSparseMatrix
 
 
 class _ModelTemplate(object):
-    def __init__(self, n, dt, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         x_samples = np.linspace(first_x, last_x, n + 1)
-        t_samples = np.arange(0, last_t, dt)
+        t_samples = np.arange(first_t, last_t, dt)
         self._current_step = 0
         self._dx = x_samples[1] - x_samples[0]
         self._dt = dt
@@ -26,8 +27,8 @@ class _ModelTemplate(object):
 
 
 class _ForwardEulerModel(_ModelTemplate):
-    def __init__(self, n, dt, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term, transition_mat):
-        super(_ForwardEulerModel, self).__init__(n, dt, last_t, first_x, last_x, starting_condition_func,
+    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term, transition_mat):
+        super(_ForwardEulerModel, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
                                                  nonhomogeneous_term)
         self._transition_mat = transition_mat
 
@@ -38,12 +39,12 @@ class _ForwardEulerModel(_ModelTemplate):
 
 
 class _LeapFrogModel(_ModelTemplate):
-    def __init__(self, n, dt, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term, transition_mat,
+    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term, transition_mat,
                  first_step_model):
-        super(_LeapFrogModel, self).__init__(n, dt, last_t, first_x, last_x, starting_condition_func,
+        super(_LeapFrogModel, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
                                              nonhomogeneous_term)
         self._transition_mat = transition_mat
-        self._first_step_model = first_step_model(n, dt, last_t, first_x, last_x, starting_condition_func,
+        self._first_step_model = first_step_model(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
                                                   nonhomogeneous_term)
         self._previous_state = deepcopy(self.current_state)
 
@@ -62,20 +63,36 @@ class _LeapFrogModel(_ModelTemplate):
 
 
 class AdvectionEqForwardEuler(_ForwardEulerModel):
-    def __init__(self, n, dt, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
-        #nonhomogeneous_term = lambda x, t: np.zeros(x.shape)  # The equation is assumed to be homogeneous.
+    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / (2 * dx)
         transition_mat = CirculantSparseMatrix(n + 1, [1, ratio, -ratio], [0, 1, n])
-        super(AdvectionEqForwardEuler, self).__init__(n, dt, last_t, first_x, last_x, starting_condition_func,
+        super(AdvectionEqForwardEuler, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
                                                       nonhomogeneous_term, transition_mat)
 
 
 class AdvectionModelLeapFrog(_LeapFrogModel):
-    def __init__(self, n, dt, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
-        #nonhomogeneous_term = lambda x, t: np.zeros(x.shape)  # The equation is assumed to be homogeneous.
+    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / dx
         transition_mat = CirculantSparseMatrix(n + 1, [ratio, -ratio], [1, n])
-        super(AdvectionModelLeapFrog, self).__init__(n, dt, last_t, first_x, last_x, starting_condition_func,
+        super(AdvectionModelLeapFrog, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
                                                      nonhomogeneous_term, transition_mat, AdvectionEqForwardEuler)
+
+
+class ModelName(Enum):
+    AdvectionEquation_ForwardEuler = "Advection Equation - Forward Euler"
+    AdvectionEquation_LeapFrog = "Advection Equation - Leap Frog"
+
+
+_models_names_to_objects = {
+    ModelName.AdvectionEquation_ForwardEuler: AdvectionEqForwardEuler,
+    ModelName.AdvectionEquation_LeapFrog: AdvectionModelLeapFrog
+}
+
+
+def create_model(model_name):
+    if model_name in _models_names_to_objects:
+        return _models_names_to_objects[model_name]
+    else:
+        raise NotImplementedError("Model name {0} is NOT implemented".format(model_name))
