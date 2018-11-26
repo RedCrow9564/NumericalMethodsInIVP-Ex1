@@ -34,7 +34,7 @@ class _ForwardEulerModel(_ModelTemplate):
 
     def make_step(self):
         non_homogeneous_element = self._sampled_nonhomogeneous_term[self._current_step, :]
-        self.current_state = self._transition_mat.dot(self.current_state) + self._dt * non_homogeneous_element
+        self.current_state = self._transition_mat.dot(self.current_state) + 2 * self._dt * non_homogeneous_element
         self._current_step += 1
 
 
@@ -62,13 +62,13 @@ class _LeapFrogModel(_ModelTemplate):
         self._current_step += 1
 
 
-class AdvectionEqForwardEuler(_ForwardEulerModel):
+class AdvectionModelForwardEuler(_ForwardEulerModel):
     def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / (2 * dx)
         transition_mat = CirculantSparseMatrix(n + 1, [1, ratio, -ratio], [0, 1, n])
-        super(AdvectionEqForwardEuler, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
-                                                      nonhomogeneous_term, transition_mat)
+        super(AdvectionModelForwardEuler, self).__init__(n, dt, first_t, last_t, first_x, last_x,
+                                                         starting_condition_func, nonhomogeneous_term, transition_mat)
 
 
 class AdvectionModelLeapFrog(_LeapFrogModel):
@@ -77,17 +77,39 @@ class AdvectionModelLeapFrog(_LeapFrogModel):
         ratio = dt / dx
         transition_mat = CirculantSparseMatrix(n + 1, [ratio, -ratio], [1, n])
         super(AdvectionModelLeapFrog, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
-                                                     nonhomogeneous_term, transition_mat, AdvectionEqForwardEuler)
+                                                     nonhomogeneous_term, transition_mat, AdvectionModelForwardEuler)
+
+
+class HeatModelForwardEuler(_ForwardEulerModel):
+    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+        dx = (last_x - first_x) / (n + 1)
+        ratio = dt / (dx ** 2)
+        transition_mat = CirculantSparseMatrix(n + 1, [-2 * ratio + 1, ratio, ratio], [0, 1, n])
+        super(HeatModelForwardEuler, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
+                                                     nonhomogeneous_term, transition_mat)
+
+
+class HeatModelLeapFrog(_LeapFrogModel):
+    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+        dx = (last_x - first_x) / (n + 1)
+        ratio = 2 * (dt / (dx ** 2))
+        transition_mat = CirculantSparseMatrix(n + 1, [-2 * ratio, ratio, ratio], [0, 1, n])
+        super(HeatModelLeapFrog, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
+                                                     nonhomogeneous_term, transition_mat, HeatModelForwardEuler)
 
 
 class ModelName(Enum):
     AdvectionEquation_ForwardEuler = "Advection Equation - Forward Euler"
     AdvectionEquation_LeapFrog = "Advection Equation - Leap Frog"
+    HeatEquation_ForwardEuler = "Heat Equation - Forward Euler"
+    HeatEquation_LeapFrog = "Heat Equation - Leap Frog"
 
 
 _models_names_to_objects = {
-    ModelName.AdvectionEquation_ForwardEuler: AdvectionEqForwardEuler,
-    ModelName.AdvectionEquation_LeapFrog: AdvectionModelLeapFrog
+    ModelName.AdvectionEquation_ForwardEuler: AdvectionModelForwardEuler,
+    ModelName.AdvectionEquation_LeapFrog: AdvectionModelLeapFrog,
+    ModelName.HeatEquation_ForwardEuler: HeatModelForwardEuler,
+    ModelName.HeatEquation_LeapFrog: HeatModelLeapFrog
 }
 
 

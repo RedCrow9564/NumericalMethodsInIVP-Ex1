@@ -9,8 +9,9 @@ def exact_solution(x, t):
     return np.cos(2 * np.pi * (x + t))
 
 
-def start_conditions(x):
-    return exact_solution(x, 0)
+def nonhomogeneous_term_heat_model(x, t):
+    return -2 * np.pi * np.sin(2 * np.pi * (x + t)) + \
+           4 * np.pi ** 2 * np.cos(2 * np.pi * (x + t))
 
 
 def find_best_lambda(model_name, lambdas, dt_init_method, first_t, last_t, first_x, last_x, n, exact_solution,
@@ -39,20 +40,20 @@ def main():
     first_t = 0
     last_t = 5
 
-    lambdas_list = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5] + np.arange(1, 17.5, 0.5).tolist()
+    lambdas_list = np.arange(0.1, 2, 0.2).tolist()
     first_n = 16
-    nonhomogeneous_term = lambda y, t: np.zeros(y.shape)
-    model_name = ModelName.AdvectionEquation_LeapFrog
-    dt_init_method = DtInitializerMethod.square
+    nonhomogeneous_term = lambda x, t: np.zeros(x.shape)
+    model_name = ModelName.AdvectionEquation_ForwardEuler
+    dt_init_method = DtInitializerMethod.linear
 
     find_best_lambda(model_name, lambdas_list, dt_init_method, first_t, last_t, first_x, last_x, first_n,
                      exact_solution, nonhomogeneous_term)
 
-    # best_lambda = 1
-    # n_list = np.power(2, list(range(4, 7)))
-    #
-    # find_approximation_rate(model_name, best_lambda, dt_init_method, first_t, last_t, first_x, last_x, n_list,
-    #                         exact_solution, nonhomogeneous_term)
+    best_lambda = 1
+    n_list = np.power(2, list(range(4, 8)))
+
+    find_approximation_rate(model_name, best_lambda, dt_init_method, first_t, last_t, first_x, last_x, n_list,
+                            exact_solution, nonhomogeneous_term)
 
 
 if __name__ == '__main__':

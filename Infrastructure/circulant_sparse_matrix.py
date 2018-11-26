@@ -7,7 +7,7 @@ class CirculantSparseMatrix(object):
     def __init__(self, n, nonzero_terms, nonzero_indices):
         self._n = n
         self._terms = np.array(nonzero_terms)
-        self._indices = np.array(nonzero_indices)
+        self._indices = np.array(nonzero_indices, dtype=np.int32)
 
     def dot(self, v):
         next_state = np.zeros(v.shape)

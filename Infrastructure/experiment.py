@@ -32,6 +32,13 @@ class Experiment(object):
 
         return self.results, self.model_error
 
+    def plot_results(self):
+        exact_values = self._exact_solution(self._x_values, self._last_calculated_time)
+        plt.plot(self._x_values, self.results, label='Approximation')
+        plt.plot(self._x_values, exact_values, label='Exact')
+        plt.legend()
+        plt.show()
+
 
 class SingleNManyLambdasExperiments(object):
     def __init__(self, model_name, n, lamda_list, first_t, last_t, first_x, last_x, dt_init_method, exact_solution,
@@ -56,7 +63,9 @@ class SingleNManyLambdasExperiments(object):
 
     def run_experiments(self):
         for lamda in self._lambda_list:
-            _, experiment_error = self._create_experiment(lamda, self._n).run()
+            experiment = self._create_experiment(lamda, self._n)
+            _, experiment_error = experiment.run()
+            #experiment.plot_results()
             self._model_errors.append(experiment_error)
 
     def plot_results(self):
