@@ -33,6 +33,7 @@ class Experiment(object):
         return self.results, self.model_error
 
     def plot_results(self):
+        plt.rc('text', usetex=True)
         exact_values = self._exact_solution(self._x_values, self._last_calculated_time)
         plt.plot(self._x_values, self.results, label='Approximation')
         plt.plot(self._x_values, exact_values, label='Exact')
@@ -72,11 +73,13 @@ class SingleNManyLambdasExperiments(object):
         weighed_errors = np.flip(self._model_errors, axis=0).dot(np.sqrt(self._dx))
         flipped_lambdas = np.flip(self._lambda_list, axis=0)
 
+        plt.rc('text', usetex=True)
+        plt.rc('font', family='serif')
         ax = plt.subplot('111')
         ax.plot(flipped_lambdas, weighed_errors)
-        ax.set_title('{0} scheme for N = {1}'.format(self._model_name.value, self._n))
-        ax.set_xlabel(r'\lambda')
-        ax.set_ylabel(r'Weighed L2 approximation error')
+        ax.set_title(r'{0} scheme for N = {1}'.format(self._model_name.value, self._n), fontsize=14)
+        ax.set_xlabel(r'$\lambda$', fontsize=14)
+        ax.set_ylabel(r'\textit{Weighed L2 approximation error}', fontsize=14)
         plt.show()
 
 
@@ -109,12 +112,17 @@ class SingleLambdaManyNExperiments(object):
     def plot_results(self):
         weighed_errors = np.flip(np.multiply(np.sqrt(self._dx_list), self._model_errors), axis=0)
         flipped_dx = np.flip(self._dx_list, axis=0)
-        slope = np.polyfit(np.log10(flipped_dx), np.log10(weighed_errors), deg=1)[0]
+        try:
+            slope = np.polyfit(np.log10(flipped_dx), np.log10(weighed_errors), deg=1)[0]
+        except np.linalg.LinAlgError:
+            slope = np.nan
+
+        plt.rc('text', usetex=True)
         ax = plt.subplot('111')
         ax.plot(flipped_dx, weighed_errors)
-        ax.set_title('{0} scheme for \lambda = {1}'.format(self._model_name.value, self._lambda))
-        ax.set_xlabel(r'dx')
-        ax.set_ylabel(r'Weighed L2 approximation error')
+        ax.set_title(r'{0} scheme for $\lambda$ = {1}'.format(self._model_name.value, self._lambda), fontsize=14)
+        ax.set_xlabel(r'\textit{dx}', fontsize=14)
+        ax.set_ylabel(r'\textit{Weighed L2 approximation error}', fontsize=14)
         at = AnchoredText("slope = {0}".format(slope), prop=dict(size=12), frameon=True, loc=2)
         at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
         ax.add_artist(at)
