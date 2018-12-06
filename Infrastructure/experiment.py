@@ -34,6 +34,7 @@ class Experiment(object):
 
     def plot_results(self):
         plt.rc('text', usetex=True)
+        plt.rc('font', family='serif')
         exact_values = self._exact_solution(self._x_values, self._last_calculated_time)
         plt.plot(self._x_values, self.results, label='Approximation')
         plt.plot(self._x_values, exact_values, label='Exact')
@@ -118,6 +119,7 @@ class SingleLambdaManyNExperiments(object):
             slope = np.nan
 
         plt.rc('text', usetex=True)
+        plt.rc('font', family='serif')
         ax = plt.subplot('111')
         ax.plot(flipped_dx, weighed_errors)
         ax.set_title(r'{0} scheme for $\lambda$ = {1}'.format(self._model_name.value, self._lambda), fontsize=14)
