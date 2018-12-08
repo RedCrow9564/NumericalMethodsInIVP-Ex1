@@ -16,7 +16,7 @@ class Experiment(object):
 
         selected_model_type = create_model(model_name)
         start_conditions = lambda x: exact_solution(x, 0)
-        self.model = selected_model_type(n, dt, first_t, last_t, first_x, last_x,
+        self.model = selected_model_type(n, dt, first_t, first_x, last_x,
                                          starting_condition_func=start_conditions,
                                          nonhomogeneous_term=nonhomogeneous_term)
         self.results = None

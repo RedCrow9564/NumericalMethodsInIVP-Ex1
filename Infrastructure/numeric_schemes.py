@@ -7,44 +7,41 @@ from Infrastructure.circulant_sparse_matrix import CirculantSparseMatrix
 
 
 class _ModelTemplate(object):
-    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
-        x_samples = np.linspace(first_x, last_x, n + 1, endpoint=False)
-        t_samples = np.arange(first_t, last_t, dt)
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+        self._x_samples = np.linspace(first_x, last_x, n + 1, endpoint=False)
+        self._nonhomogeneous_term = nonhomogeneous_term
         self._current_step = 0
-        self._dx = x_samples[1] - x_samples[0]
+        self._current_time = first_t
+        self._dx = self._x_samples[1] - self._x_samples[0]
         self._dt = dt
         self._n = n
-        self.current_state = starting_condition_func(x_samples)
-        x_grid, t_grid = np.meshgrid(x_samples, t_samples)
-        self._sampled_nonhomogeneous_term = nonhomogeneous_term(x_grid, t_grid)
-        del x_grid
-        del t_grid
-        del x_samples
-        del t_samples
+        self.current_state = starting_condition_func(self._x_samples)
 
     def make_step(self):
         raise NotImplementedError("Each model MUST implement this method!")
 
 
 class _ForwardEulerModel(_ModelTemplate):
-    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term, transition_mat):
-        super(_ForwardEulerModel, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term, transition_mat):
+        super(_ForwardEulerModel, self).__init__(n, dt, first_t, first_x, last_x, starting_condition_func,
                                                  nonhomogeneous_term)
         self._transition_mat = transition_mat
 
     def make_step(self):
-        non_homogeneous_element = self._sampled_nonhomogeneous_term[self._current_step, :]
+        x_grid, current_t_grid = np.meshgrid(self._x_samples, self._current_time)
+        non_homogeneous_element = self._nonhomogeneous_term(x_grid, current_t_grid)[0]
         self.current_state = self._transition_mat.dot(self.current_state) + self._dt * non_homogeneous_element
         self._current_step += 1
+        self._current_time += self._dt
 
 
 class _LeapFrogModel(_ModelTemplate):
-    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term, transition_mat,
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term, transition_mat,
                  first_step_model):
-        super(_LeapFrogModel, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
+        super(_LeapFrogModel, self).__init__(n, dt, first_t, first_x, last_x, starting_condition_func,
                                              nonhomogeneous_term)
         self._transition_mat = transition_mat
-        self._first_step_model = first_step_model(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
+        self._first_step_model = first_step_model(n, dt, first_t, first_x, last_x, starting_condition_func,
                                                   nonhomogeneous_term)
         self._previous_state = deepcopy(self.current_state)
 
@@ -53,85 +50,87 @@ class _LeapFrogModel(_ModelTemplate):
             self._first_step_model.make_step()
             del self._first_step_model
         else:
-            non_homogeneous_element = self._sampled_nonhomogeneous_term[self._current_step, :]
+            x_grid, current_t_grid = np.meshgrid(self._x_samples, self._current_time)
+            non_homogeneous_element = self._nonhomogeneous_term(x_grid, current_t_grid)[0]
             current_state_copy = deepcopy(self.current_state)
             self.current_state = self._previous_state + self._transition_mat.dot(self.current_state) + \
                 2 * self._dt * non_homogeneous_element
             self._previous_state = current_state_copy
 
         self._current_step += 1
+        self._current_time += self._dt
 
 
 class AdvectionModelForwardEuler(_ForwardEulerModel):
-    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / (2 * dx)
         transition_mat = CirculantSparseMatrix(n + 1, [1, ratio, -ratio], [0, 1, n])
-        super(AdvectionModelForwardEuler, self).__init__(n, dt, first_t, last_t, first_x, last_x,
+        super(AdvectionModelForwardEuler, self).__init__(n, dt, first_t, first_x, last_x,
                                                          starting_condition_func, nonhomogeneous_term, transition_mat)
 
 
 class AdvectionModelLeapFrog(_LeapFrogModel):
-    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / dx
         transition_mat = CirculantSparseMatrix(n + 1, [ratio, -ratio], [1, n])
-        super(AdvectionModelLeapFrog, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
+        super(AdvectionModelLeapFrog, self).__init__(n, dt, first_t, first_x, last_x, starting_condition_func,
                                                      nonhomogeneous_term, transition_mat, AdvectionModelForwardEuler)
 
 
 class AdvectionModelUpwindScheme(_ForwardEulerModel):
-    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / dx
         transition_mat = CirculantSparseMatrix(n + 1, [-ratio + 1, ratio], [0, 1])
-        super(AdvectionModelUpwindScheme, self).__init__(n, dt, first_t, last_t, first_x, last_x,
+        super(AdvectionModelUpwindScheme, self).__init__(n, dt, first_t, first_x, last_x,
                                                          starting_condition_func, nonhomogeneous_term, transition_mat)
 
 
 class AdvectionModelDownwindScheme(_ForwardEulerModel):
-    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / dx
         transition_mat = CirculantSparseMatrix(n + 1, [ratio + 1, -ratio], [0, n])
-        super(AdvectionModelDownwindScheme, self).__init__(n, dt, first_t, last_t, first_x, last_x,
+        super(AdvectionModelDownwindScheme, self).__init__(n, dt, first_t, first_x, last_x,
                                                            starting_condition_func, nonhomogeneous_term, transition_mat)
 
 
 class AdvectionModelLaxFriedrichs(_ForwardEulerModel):
-    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / (2 * dx)
         transition_mat = CirculantSparseMatrix(n + 1, [ratio + 0.5, -ratio + 0.5], [1, n])
-        super(AdvectionModelLaxFriedrichs, self).__init__(n, dt, first_t, last_t, first_x, last_x,
+        super(AdvectionModelLaxFriedrichs, self).__init__(n, dt, first_t, first_x, last_x,
                                                           starting_condition_func, nonhomogeneous_term, transition_mat)
 
 
 class AdvectionModelLaxWendroff(_ForwardEulerModel):
-    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / dx
         coefficients = [1 - ratio ** 2, 0.5 * ratio + 0.5 * ratio ** 2, -0.5 * ratio + 0.5 * ratio ** 2]
         transition_mat = CirculantSparseMatrix(n + 1, coefficients, [0, 1, n])
-        super(AdvectionModelLaxWendroff, self).__init__(n, dt, first_t, last_t, first_x, last_x,
+        super(AdvectionModelLaxWendroff, self).__init__(n, dt, first_t, first_x, last_x,
                                                         starting_condition_func, nonhomogeneous_term, transition_mat)
 
 
 class HeatModelForwardEuler(_ForwardEulerModel):
-    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         dx = (last_x - first_x) / (n + 1)
         ratio = dt / (dx ** 2)
         transition_mat = CirculantSparseMatrix(n + 1, [-2 * ratio + 1, ratio, ratio], [0, 1, n])
-        super(HeatModelForwardEuler, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
+        super(HeatModelForwardEuler, self).__init__(n, dt, first_t, first_x, last_x, starting_condition_func,
                                                      nonhomogeneous_term, transition_mat)
 
 
 class HeatModelLeapFrog(_LeapFrogModel):
-    def __init__(self, n, dt, first_t, last_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term):
         dx = (last_x - first_x) / (n + 1)
         ratio = 2 * (dt / (dx ** 2))
         transition_mat = CirculantSparseMatrix(n + 1, [-2 * ratio, ratio, ratio], [0, 1, n])
-        super(HeatModelLeapFrog, self).__init__(n, dt, first_t, last_t, first_x, last_x, starting_condition_func,
+        super(HeatModelLeapFrog, self).__init__(n, dt, first_t, first_x, last_x, starting_condition_func,
                                                      nonhomogeneous_term, transition_mat, HeatModelForwardEuler)
 
 
