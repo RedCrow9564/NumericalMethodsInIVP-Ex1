@@ -3,7 +3,7 @@ from copy import deepcopy
 from enum import Enum
 #from memory_profiler import profile
 
-from Infrastructure.circulant_sparse_matrix import CirculantSparseMatrix
+from Infrastructure.circulant_sparse_matrix import CirculantSparseMatrix, AlmostTridiagonalToeplitzMatrix
 
 
 class _ModelTemplate(object):
@@ -33,6 +33,14 @@ class _ForwardEulerModel(_ModelTemplate):
         self.current_state = self._transition_mat.dot(self.current_state) + self._dt * non_homogeneous_element
         self._current_step += 1
         self._current_time += self._dt
+
+
+class _BackwardEulerModel(_ModelTemplate):
+    def __init__(self, n, dt, first_t, first_x, last_x, starting_condition_func, nonhomogeneous_term, transition_mat):
+        super(_BackwardEulerModel, self).__init__(n, dt, first_t, first_x, last_x, starting_condition_func,
+                                                  nonhomogeneous_term)
+        ratio = dt / self._dx
+        self._transition_mat = AlmostTridiagonalToeplitzMatrix(n + 1, [None])
 
 
 class _LeapFrogModel(_ModelTemplate):
@@ -141,6 +149,7 @@ class ModelName(Enum):
     AdvectionEquation_Downwind = "Advection Equation - Downwind Scheme"
     AdvectionEquation_LaxFriedrichs = "Advection Equation - Lax Friedrichs"
     AdvectionEquation_LaxWendroff = "Advection Equation - Lax Wendroff"
+    AdvectionEquation_BackwardEuler = "Advection Equation - Backward Euler"
     HeatEquation_ForwardEuler = "Heat Equation - Forward Euler"
     HeatEquation_LeapFrog = "Heat Equation - Leap Frog"
 
