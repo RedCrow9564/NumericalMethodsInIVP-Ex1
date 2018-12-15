@@ -24,3 +24,7 @@ class AlmostTridiagonalToeplitzMatrix(CirculantSparseMatrix):
                      nonzero_terms[2] * np.ones((1, n - 1), dtype=np.float32)[0],
                      [nonzero_terms[1]], [nonzero_terms[2]]]
         self._mat = diags(diagonals, [0, 1, -1, -n + 1, n - 1]).toarray()
+        self._inverse = np.linalg.inv(self._mat)
+
+    def inverse_solution(self, v):
+        return self._inverse.dot(v)

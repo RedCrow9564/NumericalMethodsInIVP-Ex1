@@ -71,6 +71,8 @@ class SingleNManyLambdasExperiments(object):
             self._model_errors.append(experiment_error)
 
     def plot_results(self):
+        self._model_errors = np.array(self._model_errors)
+        self._model_errors = np.place(self._model_errors, self._model_errors == 0, np.finfo(np.float32).eps).tolist()
         weighed_errors = np.log10(np.array(self._model_errors).dot(np.sqrt(self._dx)))
         flipped_lambdas = np.log10(self._lambda_list)
 
@@ -113,6 +115,8 @@ class SingleLambdaManyNExperiments(object):
             self._model_errors.append(experiment_error)
 
     def plot_results(self):
+        self._model_errors = np.array(self._model_errors)
+        self._model_errors = np.place(self._model_errors, self._model_errors == 0, np.finfo(np.float32).eps).tolist()
         weighed_errors = np.log10(np.multiply(np.sqrt(self._dx_list), self._model_errors))
         flipped_dx = np.log10(self._dx_list)
         try:
