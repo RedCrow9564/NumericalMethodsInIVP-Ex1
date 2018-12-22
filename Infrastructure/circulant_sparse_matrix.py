@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.sparse import diags
-from Infrastructure.circulant_sparse_product import compute
+from Infrastructure.circulant_sparse_product import compute, solve_almost_tridiagonal_system
 
 
 class CirculantSparseMatrix(object):
@@ -23,8 +23,15 @@ class AlmostTridiagonalToeplitzMatrix(CirculantSparseMatrix):
                      nonzero_terms[1] * np.ones((1, n - 1), dtype=np.float32)[0],
                      nonzero_terms[2] * np.ones((1, n - 1), dtype=np.float32)[0],
                      [nonzero_terms[1]], [nonzero_terms[2]]]
+        self._diag_term = nonzero_terms[0]
+        self._up_diag = nonzero_terms[1]
+        self._sub_diag = nonzero_terms[2]
         self._mat = diags(diagonals, [0, 1, -1, -n + 1, n - 1]).toarray()
         self._inverse = np.linalg.inv(self._mat)
 
     def inverse_solution(self, v):
-        return self._inverse.dot(v)
+        solve_almost_tridiagonal_system(self._diag_term, self._sub_diag, self._up_diag, self._n, v,
+                                        np.zeros(v.shape))
+        return v
+
+
